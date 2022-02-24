@@ -1,13 +1,14 @@
 ---
 title: "Lake Water Quality Analysis"
-author: "Matthew Ross"
-date: "9/17/2019"
+author: "Mikaela Richardson"
+date: "2/24/2022"
 output: html_document
 ---
 
 
-
 ```{r setup, include=FALSE}
+knitr::opts_chunk$set(warning = FALSE, message = FALSE) 
+
 library(tidyverse) # Tidy packages
 library(sf) #Spatial package that can read and create shapefiles 
 library(mapview) #Interactive maps
@@ -88,8 +89,6 @@ chla_secchi_200 <- chla_secchi %>%
 spatial_200 <- inner_join(spatial_lakes,chla_secchi_200 %>%
                             distinct(lagoslakeid,.keep_all=T),
                           by='lagoslakeid')
-
-
 ```
 
 ### Mean Chl_a map
@@ -120,51 +119,84 @@ mapview(mean_spatial,zcol='log10_mean_chl')
 
 # Class work
 
-## 1) What is the correlation between Secchi Disk Depth and Chlorophyll a for
-sites with at least 200 observations?
+## 1) What is the correlation between Secchi Disk Depth and Chlorophyll a for sites with at least 200 observations?
 
 - Here, I just want a plot of chla vs secchi for all sites 
 
-```{r}
-#Your code here
+```{r, warning = F}
+#Sites with at least 200 observations
+chla_secchi_200 <- chla_secchi %>%
+  group_by(lagoslakeid) %>%
+  mutate(count = n()) %>%
+  filter(count > 200) 
 
+cor(chla_secchi_200$chla, chla_secchi_200$secchi)
+
+ggplot(chla_secchi_200, aes(x=chla, y= secchi))+
+  geom_point()+
+  labs(x = "log(Chlorophyll A)", y = "log(Secchi Disk Depth)", title = "Chorophyll A vs. Secchi Disk Depth")+
+  scale_x_log10()+
+  scale_y_log10()
 ```
 
-
-## Why might this be the case? 
-
+Figure 1. Scatterplot of Chlorophyll A and Secchi disk depth for all sites. The log scale was taken for both variables to have a better understanding of the correlation between the two. There is a negative correlation between chlorophyll a and the secchi disk depth with a correlation value of -0.3774. As the visible depth of the secchi disk increases there is less chlorophyll a. With more chlorophyll a the water will be more turbid, so it would be expected that the secchi disk depth would decrease as it would more difficult to see.
 
 ## 2) What states have the most data? 
 
-### 2a) First you will need to make a lagos spatial dataset that has the total 
-number of counts per site.
+Minnesota has the most data collected. 
+
+### 2a) First you will need to make a lagos spatial dataset that has the total number of counts per site.
 
 ```{r}
+site_counts <- nutr %>%
+  group_by(lagoslakeid)%>%
+  summarize(count = n())
 
-## Your code here
+spatial_counts <- inner_join(spatial_lakes, site_counts %>%
+                               distinct(lagoslakeid,.keep_all=T),
+                             by = "lagoslakeid")
 ```
 
 
-### 2b) Second, you will need to join this point dataset to the us_boundaries 
-data. 
+### 2b) Second, you will need to join this point dataset to the us_boundaries data. 
 
 ```{r}
-## Your code here
+states_lagos <- lagos$state
+
+states_lakes <- inner_join(spatial_counts, states_lagos, by = "state_zoneid") 
 ```
 
 
-### 2c) Then you will want to group by state and sum all the observations in that
-state and arrange that data from most to least toatl observations per state. 
+### 2c) Then you will want to group by state and sum all the observations in that state and arrange that data from most to least total observations per state. 
 
 ```{r}
-## Your code here. 
+sum_states <- states_lakes %>% 
+  as.data.frame()%>%
+  select(-geometry)%>%
+  group_by(state_name) %>%
+  summarize(sum_counts = sum(count))%>%
+  arrange(desc(sum_counts))
+
+head(sum_states)
 ```
+Accessed code for lines 164, 174, and 175 from the Code Help page on the class' Teams group by Matt Ross and Amanda Hastings on 2/24/2022 and for lines 155-157 from Matt Ross' Day 8 video lecture.
 
-##3 Is there a spatial pattern in Secchi disk depth for lakes with at least 200 
-observations?
+## 3) Is there a spatial pattern in Secchi disk depth for lakes with at least 200 observations?
+
+There isn't a clear spatial pattern for mean Secchi disk depth for lakes with at least 200 observations, however, there does seem to be lower values for the Midwest and south of Boston. With more farming in the Midwest, it would be expected that there is more nutrient loading in the lakes increasing chlorophyll a concentrations and reducing the Secchi disk depth.
 
 ```{r}
-## Your code here
+mean_values_200 <- chla_secchi_200 %>%
+  group_by(lagoslakeid) %>%
+  summarize(mean_secchi = mean(secchi, na.rm = T),
+            mean_chl = mean(chla, na.rm =T)) %>%
+  mutate(log10_mean_secchi = log10(mean_secchi))
+
+nutr_spatial <- inner_join(spatial_lakes, mean_values_200 %>%
+                             distinct(lagoslakeid, .keep_all=T),
+                           by = "lagoslakeid")
+ 
+ mapview(nutr_spatial,zcol = 'log10_mean_secchi')
 
 ```
 
